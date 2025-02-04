@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro de Minutos para Levantarse</title>
+    <title>Registro de Horas Sin +</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -53,7 +53,7 @@
     </style>
 </head>
 <body>
-    <h1>Registro de Minutos para Levantarse</h1>
+    <h1>Registro de Horas Sin + </h1>
     <label for="minutos">Minutos:</label>
     <input type="number" id="minutos" placeholder="Ingrese los minutos" required>
     <button id="registrar">Registrar</button>
@@ -73,6 +73,7 @@
     <script>
         // Inicializar el arreglo de registros
         let registros = JSON.parse(localStorage.getItem('registros')) || [];
+        let chartInstance;
 
         // Cargar el historial en la página
         function cargarHistorial() {
@@ -85,23 +86,34 @@
             });
         }
 
+        // Función para obtener colores según minutos
+        function obtenerColor(minutos, index) {
+    // Siempre rojo si es menor a 48
+    if (minutos < 48) return 'rgba(255, 99, 132, 0.5)'; // Rojo
+    
+    // Rojo si es menor que el anterior
+    if (index > 0 && minutos < registros[index - 1].minutos) {
+        return 'rgba(255, 99, 132, 0.5)'; // Rojo
+    }
+    
+    // Verde en cualquier otro caso
+    return 'rgba(75, 192, 192, 0.5)';
+}
+
+
         // Registrar el tiempo en el localStorage
         document.getElementById('registrar').addEventListener('click', () => {
             const minutosInput = document.getElementById('minutos');
             const minutos = parseInt(minutosInput.value);
-            if (!isNaN(minutos)) {
+            if (!isNaN(minutos) && minutos >= 0) { // Validar minutos positivos
                 const fecha = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: '2-digit' });
-                // Agregar nuevo registro al final
                 registros.push({ minutos, fecha });
-                // Limitar a 14 registros
-                if (registros.length > 14) {
-                    registros.shift(); // Eliminar el registro más antiguo
-                }
+                if (registros.length > 50) registros.shift(); // Limitar a 14 registros
                 localStorage.setItem('registros', JSON.stringify(registros));
                 cargarHistorial();
                 minutosInput.value = ''; // Limpiar el input
             } else {
-                alert('Por favor, ingresa un número válido.');
+                alert('Por favor, ingresa un número válido y positivo.');
             }
         });
 
@@ -110,8 +122,9 @@
             const confirmar = confirm("¿Estás seguro de que deseas borrar todos los registros?");
             if (confirmar) {
                 localStorage.removeItem('registros');
-                registros = []; // Limpiar el arreglo de registros
-                cargarHistorial(); // Actualizar el historial
+                registros = [];
+                cargarHistorial();
+                if (chartInstance) chartInstance.destroy(); // Destruir la gráfica si existe
             }
         });
 
@@ -120,25 +133,13 @@
             const ctx = document.getElementById('myChart').getContext('2d');
             const etiquetas = registros.map((_, index) => `Registro ${index + 1}`);
             const datos = registros.map(registro => registro.minutos);
-            const colores = [];
+            const colores = registros.map((registro, index) => obtenerColor(registro.minutos, index));
 
-            // Asignar colores basados en la lógica
-            for (let i = 0; i < registros.length; i++) {
-                if (registros[i].minutos >= 20) {
-                    colores.push('rgba(255, 99, 132, 0.5)'); // Rojo
-                } else if (registros[i].minutos >= 1 && registros[i].minutos <= 3) {
-                    colores.push('rgba(75, 192, 192, 0.5)'); // Verde
-                } else if (registros[i].minutos >= 4 && registros[i].minutos <= 19) {
-                    if (i === 0 || registros[i].minutos < registros[i - 1].minutos) {
-                        colores.push('rgba(75, 192, 192, 0.5)'); // Verde
-                    } else {
-                        colores.push('rgba(255, 99, 132, 0.5)'); // Rojo
-                    }
-                }
-            }
+            // Destruir gráfica anterior si existe
+            if (chartInstance) chartInstance.destroy();
 
             // Configurar y crear la gráfica
-            new Chart(ctx, {
+            chartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: etiquetas,
@@ -156,17 +157,13 @@
                             beginAtZero: true,
                             ticks: {
                                 color: '#333',
-                                font: {
-                                    size: 14
-                                }
+                                font: { size: 14 }
                             }
                         },
                         x: {
                             ticks: {
                                 color: '#333',
-                                font: {
-                                    size: 14
-                                }
+                                font: { size: 14 }
                             }
                         }
                     },
@@ -174,9 +171,7 @@
                         legend: {
                             labels: {
                                 color: '#333',
-                                font: {
-                                    size: 14
-                                }
+                                font: { size: 14 }
                             }
                         }
                     }
